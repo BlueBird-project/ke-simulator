@@ -1,0 +1,7 @@
+services:
+  ke-simulator:
+    build: .
+    image: ke-simulator:local
+    ports:
+      - "8081:80"
+    restart: unless-stopped
