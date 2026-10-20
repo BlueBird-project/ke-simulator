@@ -45,11 +45,11 @@ export class TradingManagerService {
     this.flowEventCallback = callback;
   }
 
-  async runCycle(scenario: TradingScenario): Promise<TradingCycleResult> {
+  async runCycle(scenario: TradingScenario, zone?: string): Promise<TradingCycleResult> {
     // 1-2. Market Service ASKs the external market and POSTs prices to the KE.
     await this.emit('market-service-ask-external', 'Market Service ASKs the external market (ENTSO-E) for day-ahead prices');
     await this.delay(400);
-    const marketPrices = await marketDataService.getDayAheadPrices();
+    const marketPrices = await marketDataService.getDayAheadPrices(zone);
     await this.emit('market-service-post-prices', 'Market Service POSTs day-ahead prices to the Knowledge Engine');
     await this.delay(400);
 
@@ -69,7 +69,7 @@ export class TradingManagerService {
     // 6-7. Trading Manager ASKs the Flexibility Manager; it ANSWERs.
     await this.emit('trading-manager-ask-fm', 'Trading Manager ASKs Flexibility Manager for predicted consumption');
     await this.delay(500);
-    const forecast = flexibilityManagerService.getPredictedConsumption();
+    const forecast = await flexibilityManagerService.getPredictedConsumptionAsync();
     await this.emit(
       'flexibility-manager-answer',
       `Flexibility Manager ANSWERs: ${forecast.predictedConsumptionMWh} MWh predicted`
@@ -110,7 +110,7 @@ export class TradingManagerService {
     await this.delay(500);
 
     // 11-12. Trading Manager corrects the position on the intraday market.
-    const intradayPrices = await marketDataService.getIntradayPrices();
+    const intradayPrices = await marketDataService.getIntradayPrices(zone);
     const intradayAvgPrice = round2(averagePrice(intradayPrices));
     const deltaMWh = round2(actualConsumptionMWh - forecast.predictedConsumptionMWh);
     const side: 'buy' | 'sell' = deltaMWh >= 0 ? 'buy' : 'sell';

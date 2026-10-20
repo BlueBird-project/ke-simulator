@@ -1,0 +1,89 @@
+# Phase 6 — full KE stack for the simulator.
+#   KE Smart Connector + KE bridge + FM stand-in + frontend, on one network.
+#
+# Run from this directory:
+#   docker compose up --build
+# Then open http://localhost:8081  (badge should read "KE bridge: ke").
+#
+# NOTE: ke-bridge and fm-standin install the PRIVATE ke_client from GitHub. If
+# the repo requires auth, provide a token at build time (see README.md).
+#
+# Without a Trading Manager in this stack there is no `tou-price` producer, so
+# day-ahead prices fall back to ENTSO-E/mock; the FM path is fully real via the
+# stand-in. To use a real TM instead, see README.md (attach to local_tm-net).
+
+name: ke-simulator
+
+services:
+  ke-service:
+    image: ghcr.io/tno/knowledge-engine/smart-connector:1.5.0
+    environment:
+      KE_RUNTIME_PORT: 8280
+      KE_KB_WAIT_TIMEOUT: 15
+      KE_HTTP_TIMEOUT: 10
+    ports:
+      - "8280:8280"
+    networks: [ke-net]
+    restart: unless-stopped
+
+  ke-bridge:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      KE_REST_ENDPOINT: http://ke-service:8280/rest/
+      KE_KNOWLEDGE_BASE_ID: http://simulator.bluebird.com
+      KE_KI_CONFIG_PATH: ./resources/ke_config.yml
+      KE_VERIFY_SERVER_CERT: "false"
+      KE_ALLOW_PARTIAL_KI: "true"
+    ports:
+      - "8090:8090"
+    depends_on: [ke-service]
+    networks: [ke-net]
+    restart: unless-stopped
+
+  fm-standin:
+    build:
+      context: ..
+      dockerfile: standin/Dockerfile
+    environment:
+      KE_REST_ENDPOINT: http://ke-service:8280/rest/
+      KE_KNOWLEDGE_BASE_ID: http://fm.bluebird.com
+      KE_VERIFY_SERVER_CERT: "false"
+      KE_ALLOW_PARTIAL_KI: "true"
+    depends_on: [ke-service]
+    networks: [ke-net]
+    restart: unless-stopped
+
+  tm-standin:
+    build:
+      context: ..
+      dockerfile: standin/Dockerfile
+    command: ["python", "standin/tm_standin.py"]
+    environment:
+      KE_REST_ENDPOINT: http://ke-service:8280/rest/
+      KE_KNOWLEDGE_BASE_ID: http://tm.bluebird.com
+      KE_VERIFY_SERVER_CERT: "false"
+      KE_ALLOW_PARTIAL_KI: "true"
+    depends_on: [ke-service]
+    networks: [ke-net]
+    restart: unless-stopped
+
+  ke-simulator:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        VITE_USE_KE: "true"
+        VITE_KE_BRIDGE_URL: /bridge
+        NGINX_CONF: nginx.ke.conf
+    image: ke-simulator:ke
+    ports:
+      - "8081:80"
+    depends_on: [ke-bridge]
+    networks: [ke-net]
+    restart: unless-stopped
+
+networks:
+  ke-net:
+    driver: bridge

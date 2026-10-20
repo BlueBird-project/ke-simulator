@@ -1,0 +1,20 @@
+# Knowledge Base + global prefixes for the KE Simulator bridge.
+# Section key is 'knowledge_engine' (required by ke_client's KI config loader).
+knowledge_engine:
+  knowledge_base_id: "http://simulator.bluebird.com"
+  kb_name: "ke-simulator-bridge"
+  kb_description: "KE Simulator bridge — consumes TM prices and FM consumption via the Knowledge Engine"
+  prefixes:
+    kb: "http://simulator.bluebird.com/"
+    tm: "http://tm.bluebird.com/"
+    fm: "http://fm.bluebird.com/"
+    ubmarket: "https://ubflex.bluebird.eu/market/"
+    rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    rdfs: "http://www.w3.org/2000/01/rdf-schema#"
+    s4ener: "https://saref.etsi.org/saref4ener/"
+    saref: "https://saref.etsi.org/core/"
+    time: "http://www.w3.org/2006/time#"
+    xsd: "http://www.w3.org/2001/XMLSchema#"
+  include:
+    - "./ki/trading-manager.yaml"
+    - "./ki/flexibility-manager.yaml"

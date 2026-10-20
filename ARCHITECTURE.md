@@ -320,6 +320,29 @@ export const ComponentName: React.FC<Props> = ({ prop1, prop2 }) => {
 6.  Persistence in localStorage
 7.  Dark/light mode
 
+## Real Knowledge Engine integration
+
+The simulated flows above can be backed by the **real** Knowledge Engine. Because
+the browser cannot use the Python `ke_client`, a server-side **KE Bridge**
+(FastAPI + `ke_client==0.32.3`) registers the simulator's Knowledge Base and
+performs the Knowledge Interactions; the frontend talks to it over REST + SSE.
+
+```
+browser → ke-simulator (nginx /bridge) → ke-bridge → Knowledge Engine ⇄ TM / FM
+```
+
+- **Plan & contracts:** `specs/001-ke-integration/` (spec, plan, per-module KI
+  contracts, tasks, and the stage→interaction `traceability.md`).
+- **Bridge:** `ke-bridge/` — lifecycle, graph patterns, REST/SSE; falls back to
+  `mode: "simulated"` when the KE is unavailable.
+- **FM stand-in:** `ke-bridge/standin/` — temporary FM KB answering the
+  consumption patterns until the real FM joins the KE (decision D-Q2).
+- **Full stack:** `ke-bridge/compose/` — KE Smart Connector + bridge + stand-in +
+  frontend (`VITE_USE_KE=true`, `nginx.ke.conf` proxies `/bridge`).
+- **Frontend seam:** `MarketDataService` prefers the KE when `VITE_USE_KE=true`,
+  with ENTSO-E/mock fallback; the Trading Manager panel shows a live
+  "KE bridge: &lt;mode&gt;" badge.
+
 ---
 
 **Last updated**: 2026

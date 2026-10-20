@@ -1,0 +1,17 @@
+# Pinned to match the Trading Manager deployment (ke_client==0.32.3).
+fastapi~=0.114.2
+uvicorn~=0.30
+pydantic~=2.9
+pydantic-settings~=2.5
+PyYAML~=6.0
+rdflib==7.5.0
+# ke_client has undeclared runtime deps (present in trading-manager's
+# requirements): setuptools (pkg_resources), requests, isodate, packaging.
+setuptools
+requests~=2.32
+isodate
+packaging
+
+# Knowledge Engine client — private BlueBird package (same pin as trading-manager).
+git+https://github.com/BlueBird-project/ke-pyclient.git@v0.32.3
+ke_client==0.32.3

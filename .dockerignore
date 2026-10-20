@@ -6,3 +6,8 @@ dist
 !.env.example
 *.log
 .vite
+
+# Python bridge artifacts (not part of the frontend image)
+ke-bridge/.venv
+**/__pycache__
+**/*.pyc

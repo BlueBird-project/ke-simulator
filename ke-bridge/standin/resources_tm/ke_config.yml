@@ -1,0 +1,17 @@
+# Temporary Trading Manager price stand-in (Option B) — KE config.
+knowledge_engine:
+  knowledge_base_id: "http://tm.bluebird.com"
+  kb_name: "tm-standin"
+  kb_description: "Temporary Trading Manager stand-in producing day-ahead prices via the KE"
+  prefixes:
+    kb: "http://tm.bluebird.com/"
+    tm: "http://tm.bluebird.com/"
+    ubmarket: "https://ubflex.bluebird.eu/market/"
+    rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    rdfs: "http://www.w3.org/2000/01/rdf-schema#"
+    s4ener: "https://saref.etsi.org/saref4ener/"
+    saref: "https://saref.etsi.org/core/"
+    time: "http://www.w3.org/2006/time#"
+    xsd: "http://www.w3.org/2001/XMLSchema#"
+  include:
+    - "./ki/trading-manager.yaml"

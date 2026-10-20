@@ -1,0 +1,17 @@
+# Temporary Flexibility Manager stand-in (D-Q2) — KE config.
+knowledge_engine:
+  knowledge_base_id: "http://fm.bluebird.com"
+  kb_name: "fm-standin"
+  kb_description: "Temporary Flexibility Manager stand-in answering consumption patterns via the KE"
+  prefixes:
+    kb: "http://fm.bluebird.com/"
+    fm: "http://fm.bluebird.com/"
+    ubmarket: "https://ubflex.bluebird.eu/market/"
+    rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    rdfs: "http://www.w3.org/2000/01/rdf-schema#"
+    s4ener: "https://saref.etsi.org/saref4ener/"
+    saref: "https://saref.etsi.org/core/"
+    time: "http://www.w3.org/2006/time#"
+    xsd: "http://www.w3.org/2001/XMLSchema#"
+  include:
+    - "./ki/flexibility-manager.yaml"

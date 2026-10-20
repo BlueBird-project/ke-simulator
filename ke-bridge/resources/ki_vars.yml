@@ -1,0 +1,7 @@
+# Variable substitutions used in the graph-pattern files (${VAR}).
+# KB_ID follows decision D-Q1; ISP_UNIT is the 15-min imbalance settlement
+# period duration. ISP_UNIT MUST match the value used by TM's deployment
+# (its .env.tm), otherwise the KE reasoner will not match our patterns.
+ki_vars:
+  KB_ID: "http://simulator.bluebird.com"
+  ISP_UNIT: '"PT15M"^^xsd:duration'

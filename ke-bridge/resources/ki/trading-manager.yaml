@@ -1,0 +1,39 @@
+# Graph patterns the simulator uses to consume Trading Manager data via the KE.
+# Simplified and using the LITERAL TM service URI <http://tm.bluebird.com/service>
+# (mirroring the working FM patterns) so the KE reasoner matches our ASK to the
+# producer's ANSWER. The producer (real TM or the tm-standin) MUST register the
+# SAME patterns.
+knowledge_engine:
+  kb_name: ""
+  kb_description: ""
+  graph_patterns:
+
+    tm-info:
+      name: "tm-info"
+      description: "Discover Trading Manager service metadata. Used in ASK."
+      pattern:
+        - ' <http://tm.bluebird.com/service> rdf:type saref:Service . '
+        - ' <http://tm.bluebird.com/service> saref:hasOperation ?command_uri . '
+        - ' ?command_uri saref:observes ?market_uri . '
+
+    tou-price-info-filtered:
+      name: "tou-price-info-filtered"
+      description: "Find the day-ahead price timeseries (tou_uri) for an interval. Used in ASK."
+      pattern:
+        - ' <http://tm.bluebird.com/service> rdf:type saref:Service . '
+        - ' ?ts_interval_uri rdf:type time:Interval; time:hasBeginning ?ts_date_from; time:hasEnd ?ts_date_to .'
+        - ' ?tou_uri rdf:type s4ener:TimeSeries ; '
+        - ' s4ener:producedBy <http://tm.bluebird.com/service> ; s4ener:hasUpdateRate "PT15M"^^xsd:duration ; '
+        - ' s4ener:hasCreationTime ?time_create ; s4ener:hasEffectivePeriod ?ts_interval_uri .'
+
+    tou-price:
+      name: "tou-price"
+      description: "Data points (96 × 15-min) for a tou_uri. Used in ASK."
+      required_bindings:
+        - "tou_uri"
+      pattern:
+        - ' ?tou_uri rdf:type s4ener:TimeSeries ; s4ener:producedBy <http://tm.bluebird.com/service> . '
+        - ' ?dp s4ener:belongsToTimeSeries ?tou_uri ; rdf:type s4ener:DataPoint ; saref:hasTimestamp ?ts ;'
+        - '   s4ener:hasEffectivePeriod ubmarket:period_15m ; saref:hasResult ?dpr.'
+        - ' ubmarket:period_15m time:hasXSDDuration "PT15M"^^xsd:duration .'
+        - ' ?dpr saref:hasValue ?value ; saref:isMeasuredIn ubmarket:EURPerMegawattHour .'

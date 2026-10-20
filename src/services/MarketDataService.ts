@@ -1,5 +1,6 @@
 import { PricePoint } from '../types';
 import { generateExamplePrices } from '../utils/priceUtils';
+import { getDayAheadPricesViaKe, keBridgeEnabled } from './KeBridgeService';
 
 /**
  * Abstraction over the external day-ahead/intraday price source (ENTSO-E
@@ -10,13 +11,37 @@ import { generateExamplePrices } from '../utils/priceUtils';
  * mock generator so the demo never breaks.
  */
 export interface MarketDataProvider {
-  getDayAheadPrices(): Promise<PricePoint[]>;
-  getIntradayPrices(): Promise<PricePoint[]>;
+  getDayAheadPrices(zone?: string): Promise<PricePoint[]>;
+  getIntradayPrices(zone?: string): Promise<PricePoint[]>;
 }
 
-// Non-secret: ENTSO-E bidding zone EIC code. Defaults to Spain (REE), matching
-// the pilot discussed in the WP5 meetings.
-const BIDDING_ZONE = import.meta.env.VITE_ENTSOE_BIDDING_ZONE || '10YES-REE------0';
+// Non-secret: ENTSO-E bidding zone EIC codes, keyed by country.
+export interface BiddingZone {
+  country: string;
+  code: string;
+}
+
+export const BIDDING_ZONES: BiddingZone[] = [
+  { country: 'Spain', code: '10YES-REE------0' },
+  { country: 'Portugal', code: '10YPT-REN------W' },
+  { country: 'France', code: '10YFR-RTE------C' },
+  { country: 'Germany–Luxembourg', code: '10Y1001A1001A82H' },
+  { country: 'Belgium', code: '10YBE----------2' },
+  { country: 'Netherlands', code: '10YNL----------L' },
+  { country: 'Italy (North)', code: '10Y1001A1001A73I' },
+  { country: 'Austria', code: '10YAT-APG------L' },
+  { country: 'Switzerland', code: '10YCH-SWISSGRIDZ' },
+  { country: 'Denmark (DK1)', code: '10YDK-1--------W' },
+  { country: 'Poland', code: '10YPL-AREA-----S' },
+  { country: 'Ireland (SEM)', code: '10Y1001A1001A59C' },
+  { country: 'Greece', code: '10YGR-HTSO-----Y' },
+  { country: 'Norway (NO1)', code: '10YNO-1--------2' },
+  { country: 'Sweden (SE1)', code: '10Y1001A1001A44P' }
+];
+
+// Defaults to Spain (REE), matching the pilot discussed in the WP5 meetings.
+export const DEFAULT_BIDDING_ZONE =
+  import.meta.env.VITE_ENTSOE_BIDDING_ZONE || BIDDING_ZONES[0].code;
 
 function toEntsoeTimestamp(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -90,7 +115,7 @@ function parseEntsoeDayAheadXml(xml: string): PricePoint[] {
 }
 
 class EntsoeMarketDataProvider implements MarketDataProvider {
-  async getDayAheadPrices(): Promise<PricePoint[]> {
+  async getDayAheadPrices(zone: string = DEFAULT_BIDDING_ZONE): Promise<PricePoint[]> {
     const tomorrow = new Date();
     tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
     tomorrow.setUTCHours(0, 0, 0, 0);
@@ -99,8 +124,8 @@ class EntsoeMarketDataProvider implements MarketDataProvider {
     const params = new URLSearchParams({
       documentType: 'A44',
       processType: 'A01',
-      in_Domain: BIDDING_ZONE,
-      out_Domain: BIDDING_ZONE,
+      in_Domain: zone,
+      out_Domain: zone,
       periodStart: toEntsoeTimestamp(tomorrow),
       periodEnd: toEntsoeTimestamp(dayAfter)
     });
@@ -114,12 +139,12 @@ class EntsoeMarketDataProvider implements MarketDataProvider {
     return parseEntsoeDayAheadXml(await response.text());
   }
 
-  async getIntradayPrices(): Promise<PricePoint[]> {
+  async getIntradayPrices(zone: string = DEFAULT_BIDDING_ZONE): Promise<PricePoint[]> {
     // ENTSO-E does not expose one standardized "intraday clearing price"
     // document across bidding zones (still an open question with the
     // Spanish pilot - see WP5 meeting notes), so intraday stays simulated:
     // a volatility markup on top of the real day-ahead curve.
-    const dayAhead = await this.getDayAheadPrices();
+    const dayAhead = await this.getDayAheadPrices(zone);
     return dayAhead.map(point => ({
       ...point,
       price: Math.max(10, Math.round(point.price * (1.1 + Math.random() * 0.2) * 100) / 100)
@@ -128,17 +153,32 @@ class EntsoeMarketDataProvider implements MarketDataProvider {
 }
 
 class MockEntsoeProvider implements MarketDataProvider {
-  async getDayAheadPrices(): Promise<PricePoint[]> {
+  async getDayAheadPrices(_zone?: string): Promise<PricePoint[]> {
     return generateExamplePrices();
   }
 
-  async getIntradayPrices(): Promise<PricePoint[]> {
+  async getIntradayPrices(_zone?: string): Promise<PricePoint[]> {
     // Intraday trades close to delivery tend to be pricier and more
     // volatile than day-ahead (per WP5 KE Simulator meeting notes).
     return generateExamplePrices().map(point => ({
       ...point,
       price: Math.max(10, Math.round(point.price * (1.1 + Math.random() * 0.2) * 100) / 100)
     }));
+  }
+}
+
+/**
+ * Obtains day-ahead prices through the Knowledge Engine bridge (decision D-Q3).
+ * Intraday is not yet served over the KE, so it throws to let the fallback
+ * chain take over.
+ */
+class KeBridgeMarketDataProvider implements MarketDataProvider {
+  async getDayAheadPrices(_zone?: string): Promise<PricePoint[]> {
+    return getDayAheadPricesViaKe();
+  }
+
+  async getIntradayPrices(_zone?: string): Promise<PricePoint[]> {
+    throw new Error('Intraday prices are not available via the KE yet');
   }
 }
 
@@ -150,26 +190,38 @@ class MockEntsoeProvider implements MarketDataProvider {
 class FallbackMarketDataProvider implements MarketDataProvider {
   constructor(private readonly primary: MarketDataProvider, private readonly fallback: MarketDataProvider) {}
 
-  async getDayAheadPrices(): Promise<PricePoint[]> {
+  async getDayAheadPrices(zone?: string): Promise<PricePoint[]> {
     try {
-      return await this.primary.getDayAheadPrices();
+      return await this.primary.getDayAheadPrices(zone);
     } catch (error) {
       console.warn('[MarketDataService] Falling back to mock day-ahead prices:', error);
-      return this.fallback.getDayAheadPrices();
+      return this.fallback.getDayAheadPrices(zone);
     }
   }
 
-  async getIntradayPrices(): Promise<PricePoint[]> {
+  async getIntradayPrices(zone?: string): Promise<PricePoint[]> {
     try {
-      return await this.primary.getIntradayPrices();
+      return await this.primary.getIntradayPrices(zone);
     } catch (error) {
       console.warn('[MarketDataService] Falling back to mock intraday prices:', error);
-      return this.fallback.getIntradayPrices();
+      return this.fallback.getIntradayPrices(zone);
     }
   }
 }
 
-export const marketDataService: MarketDataProvider = new FallbackMarketDataProvider(
-  new EntsoeMarketDataProvider(),
-  new MockEntsoeProvider()
-);
+export const marketDataService: MarketDataProvider = buildMarketDataService();
+
+/**
+ * Prefers the Knowledge Engine (decision D-Q3) when VITE_USE_KE is on, falling
+ * back to ENTSO-E and then to the mock generator so the demo never breaks.
+ */
+function buildMarketDataService(): MarketDataProvider {
+  const entsoeThenMock = new FallbackMarketDataProvider(
+    new EntsoeMarketDataProvider(),
+    new MockEntsoeProvider()
+  );
+  if (keBridgeEnabled) {
+    return new FallbackMarketDataProvider(new KeBridgeMarketDataProvider(), entsoeThenMock);
+  }
+  return entsoeThenMock;
+}

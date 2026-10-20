@@ -1,0 +1,6 @@
+# Variable substitutions for the FM stand-in graph patterns.
+# ISP_UNIT MUST match the simulator bridge and TM (their .env), or the KE
+# reasoner will not route the ASK to this stand-in's ANSWER.
+ki_vars:
+  KB_ID: "http://fm.bluebird.com"
+  ISP_UNIT: '"PT15M"^^xsd:duration'

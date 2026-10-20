@@ -28,6 +28,13 @@ export default defineConfig(({ mode }) => {
             }
             return `/api?${params.toString()}`
           }
+        },
+        // Proxies the browser to the server-side KE bridge, avoiding CORS and
+        // keeping the bridge URL out of client code.
+        '/bridge': {
+          target: env.KE_BRIDGE_TARGET || 'http://localhost:8090',
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/bridge/, '')
         }
       }
     }
