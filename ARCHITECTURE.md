@@ -8,6 +8,7 @@ KE Simulator is a visual demonstration of how energy price data flows through th
 
 ### 1. Presentation Layer (UI)
 
+
 **Main components:**
 
 - **App.tsx**: Root component that orchestrates everything. Holds the global state and coordinates between Market Side and Energy Manager.
