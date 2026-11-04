@@ -36,9 +36,27 @@ services:
       KE_KI_CONFIG_PATH: ./resources/ke_config.yml
       KE_VERIFY_SERVER_CERT: "false"
       KE_ALLOW_PARTIAL_KI: "true"
+      PRICE_FORECAST_API_URL: http://taimu-prices:8000
     ports:
-      - "8090:8090"
-    depends_on: [ke-service]
+      - "8190:8090"  # host 8090-8093 already used by common-resources-nginx-1
+    depends_on: [ke-service, taimu-prices]
+    networks: [ke-net]
+    restart: unless-stopped
+
+  # Taimu forecasting API (FAST + Chronos-2), reusing the already-built demo
+  # image but with a price-appropriate config (no positive_pv - see
+  # ../resources/taimu/price_forecast_api_config.json). Separate instance/port
+  # from any standalone Chronos-2 demo container (8000) so neither is disturbed.
+  taimu-prices:
+    image: fast-forecast-api:latest
+    environment:
+      FAST_API_CONFIG: /app/configs/price_forecast_api_config.json
+    volumes:
+      - ../resources/taimu/price_forecast_api_config.json:/app/configs/price_forecast_api_config.json:ro
+      # Custom forge (not part of flexibility-manager) - fixes a real dtype
+      # bug in FAST's future_df without clipping negative prices. See the
+      # file's own docstring for the full justification.
+      - ../resources/taimu/forge/coerce_numeric_y.py:/app/api/forge/coerce_numeric_y.py:ro
     networks: [ke-net]
     restart: unless-stopped
 
@@ -69,6 +87,42 @@ services:
     networks: [ke-net]
     restart: unless-stopped
 
+  # Independent consumer stand-in: REACTs to price-forecast, proving the
+  # forecast is genuinely delivered through the KE to a third, decoupled KB.
+  forecast-consumer-standin:
+    build:
+      context: ..
+      dockerfile: standin/Dockerfile
+    command: ["python", "standin/forecast_consumer_standin.py"]
+    environment:
+      KE_REST_ENDPOINT: http://ke-service:8280/rest/
+      KE_KNOWLEDGE_BASE_ID: http://forecast-consumer.bluebird.com
+      KE_VERIFY_SERVER_CERT: "false"
+      KE_ALLOW_PARTIAL_KI: "true"
+    depends_on: [ke-service]
+    networks: [ke-net]
+    restart: unless-stopped
+
+  # TEST producer: POSTs synthetic day-ahead prices (clearly logged as [TEST])
+  # via the real KE, on a timer - no frontend button involved. Stands in for
+  # a real Market Service, which does not POST prices through the KE yet
+  # (confirmed: trading-manager only ANSWERs tou-price, see contracts/).
+  # Triggers the Forecast Smart Connector's tou-price REACT automatically.
+  market-service-standin:
+    build:
+      context: ..
+      dockerfile: standin/Dockerfile
+    command: ["python", "standin/market_service_standin.py"]
+    environment:
+      KE_REST_ENDPOINT: http://ke-service:8280/rest/
+      KE_KNOWLEDGE_BASE_ID: http://test-market-producer.bluebird.com
+      KE_VERIFY_SERVER_CERT: "false"
+      KE_ALLOW_PARTIAL_KI: "true"
+      PUBLISH_INTERVAL_SECONDS: "90"
+    depends_on: [ke-service]
+    networks: [ke-net]
+    restart: unless-stopped
+
   ke-simulator:
     build:
       context: ../..
@@ -79,7 +133,7 @@ services:
         NGINX_CONF: nginx.ke.conf
     image: ke-simulator:ke
     ports:
-      - "8081:80"
+      - "8282:80"  # host 8081 already used by an unrelated frontend-ke-simulator-1 container
     depends_on: [ke-bridge]
     networks: [ke-net]
     restart: unless-stopped

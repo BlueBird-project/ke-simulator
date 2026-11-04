@@ -3,8 +3,15 @@ import { marketDataService } from './MarketDataService';
 import { flexibilityManagerService } from './FlexibilityManagerService';
 import { priceForecastDigitalTwinService } from './PriceForecastDigitalTwinService';
 import { consumptionDigitalTwinService } from './ConsumptionDigitalTwinService';
+import { keBridgeEnabled, runPriceForecastViaKe } from './KeBridgeService';
 
 type TradingFlowEventCallback = (event: TradingFlowEvent) => void;
+
+interface PriceForecastOutcome {
+  points: PricePoint[];
+  correlationId?: string;
+  real: boolean;
+}
 
 function averagePrice(points: PricePoint[]): number {
   if (points.length === 0) return 0;
@@ -60,9 +67,23 @@ export class TradingManagerService {
     await this.delay(400);
 
     // 4-5. The price-forecast Digital Twin POSTs its forecast; TM REACTs to it.
-    const forecastPrices = priceForecastDigitalTwinService.forecastDayAheadPrices(marketPrices);
-    await this.emit('price-forecast-twin-post-forecast', 'Price-forecast Digital Twin POSTs its price forecast to the Knowledge Engine');
-    await this.delay(400);
+    // Reuses the SAME real Taimu/Chronos-2 run already wired for the
+    // PriceForecastKePanel/RunDetailPanel (via the KE's own ASK) when the KE
+    // bridge is enabled; falls back to the local mock (clearly labelled) if
+    // the KE/Taimu call fails, so the scenario never breaks.
+    const priceForecast = await this.getPriceForecast(marketPrices);
+    const forecastPrices = priceForecast.points;
+    await this.emit(
+      'price-forecast-twin-post-forecast',
+      priceForecast.real
+        ? `Price-forecast Digital Twin POSTs its REAL price forecast (Chronos-2 via KE, ${forecastPrices.length} pt)`
+        : 'Price-forecast Digital Twin POSTs its price forecast to the Knowledge Engine (MOCK - local noise)',
+      { correlationId: priceForecast.correlationId, dataLabel: priceForecast.real ? 'REAL' : 'MOCK' }
+    );
+    // The real path already took real wall-clock time (Taimu inference); only
+    // the mock path needs the artificial pacing delay used by every other
+    // (genuinely simulated) stage in this scenario.
+    if (!priceForecast.real) await this.delay(400);
     await this.emit('trading-manager-react-forecast', 'Trading Manager REACTs to the price forecast');
     await this.delay(400);
 
@@ -138,13 +159,40 @@ export class TradingManagerService {
     };
   }
 
-  private async emit(stage: TradingStage, message: string): Promise<void> {
+  // Reuses the EXISTING runPriceForecastViaKe() (same endpoint/run_store the
+  // manual button and the automatic POST/REACT path already use - no new
+  // backend call is introduced). Falls back to the local mock on any
+  // failure (KE/Taimu unavailable) so the scenario never breaks; the
+  // fallback is always labelled 'MOCK', never mislabelled as real.
+  private async getPriceForecast(marketPrices: PricePoint[]): Promise<PriceForecastOutcome> {
+    if (keBridgeEnabled) {
+      try {
+        const result = await runPriceForecastViaKe();
+        return {
+          points: result.forecast.map(p => ({ startTime: p.ds, endTime: '', price: p.yhat })),
+          correlationId: result.correlation_id,
+          real: true
+        };
+      } catch (error) {
+        console.warn('[TradingManagerService] Falling back to mock price forecast:', error);
+      }
+    }
+    return { points: priceForecastDigitalTwinService.forecastDayAheadPrices(marketPrices), real: false };
+  }
+
+  private async emit(
+    stage: TradingStage,
+    message: string,
+    meta?: { correlationId?: string; dataLabel?: 'REAL' | 'MOCK' }
+  ): Promise<void> {
     const event: TradingFlowEvent = {
       id: `trading-event-${Date.now()}-${Math.random()}`,
       timestamp: new Date().toISOString(),
       stage,
       message,
-      status: 'success'
+      status: 'success',
+      correlationId: meta?.correlationId,
+      dataLabel: meta?.dataLabel
     };
     if (this.flowEventCallback) {
       this.flowEventCallback(event);

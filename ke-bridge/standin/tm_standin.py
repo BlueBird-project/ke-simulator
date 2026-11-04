@@ -102,7 +102,10 @@ def on_tou_price(ki_id, bindings):
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
+    # force=True: `ke_client`'s KESettings() already triggers an implicit
+    # basicConfig() (via a bare logging.warning() at import time), which would
+    # otherwise make this call a no-op and silently drop every .info() below.
+    logging.basicConfig(level=logging.INFO, force=True)
     configure_ki()
     client = KEClient.build(logger=log)
     client.include(ki_holder=tm_ki)

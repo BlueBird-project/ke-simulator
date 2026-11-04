@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     ke_verify_server_cert: bool = False
     ke_reasoner_level: int = 1
 
+    # Taimu forecasting API (FAST pipeline) used by the price-forecast KI.
+    # Separate instance/port from the Chronos-2 demo API (port 8000), running
+    # with a price-appropriate config (no positive_pv - see
+    # resources/taimu/price_forecast_api_config.json).
+    price_forecast_api_url: str = "http://taimu-prices:8000"
+
     bridge_host: str = "0.0.0.0"
     bridge_port: int = 8090
 

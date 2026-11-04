@@ -1,0 +1,26 @@
+# NEW graph pattern (2026-10-30): no official KI for publishing a price
+# forecast exists yet in UBFlex/trading-manager (checked against the current
+# UBFlex ke.graph-patterns/ and tm-service interactions - see
+# specs/001-ke-integration/contracts/price-forecast.md for the justification).
+#
+# Reuses only EXISTING, official ontology terms - the same ones tou-price and
+# market-offer already use (s4ener:TimeSeries, s4ener:DataPoint,
+# saref:hasResult/hasValue/hasTimestamp, s4ener:producedBy/belongsToTimeSeries,
+# ubmarket:EURPerMegawattHour). No new RDFS class or property is introduced.
+knowledge_engine:
+  kb_name: ""
+  kb_description: ""
+  graph_patterns:
+
+    price-forecast:
+      name: "price-forecast"
+      description: >
+        Day-ahead price forecast computed by the simulator's Forecast Smart
+        Connector (Taimu/FAST pipeline) from TM's tou-price series. Used in POST/REACT.
+      required_bindings:
+        - "forecast_uri"
+      pattern:
+        - ' ?forecast_uri rdf:type s4ener:TimeSeries ; s4ener:producedBy <http://simulator.bluebird.com/service> . '
+        - ' ?forecast_uri s4ener:hasCreationTime ?time_create . '
+        - ' ?dp s4ener:belongsToTimeSeries ?forecast_uri ; rdf:type s4ener:DataPoint ; saref:hasTimestamp ?ts ; saref:hasResult ?dpr . '
+        - ' ?dpr saref:hasValue ?value ; saref:isMeasuredIn ubmarket:EURPerMegawattHour . '

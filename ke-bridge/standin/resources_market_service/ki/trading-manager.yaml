@@ -1,0 +1,20 @@
+# Copy of the SAME tou-price family of patterns, reused verbatim (not a new
+# protocol) so this TEST producer's POST graph-matches the existing ASK
+# (ke-bridge) and the new REACT (Forecast Smart Connector, same bridge).
+# MUST stay byte-identical to ke-bridge/resources/ki/trading-manager.yaml.
+knowledge_engine:
+  kb_name: ""
+  kb_description: ""
+  graph_patterns:
+
+    tou-price:
+      name: "tou-price"
+      description: "Data points (96 × 15-min) for a tou_uri. Used in POST (TEST producer)."
+      required_bindings:
+        - "tou_uri"
+      pattern:
+        - ' ?tou_uri rdf:type s4ener:TimeSeries ; s4ener:producedBy <http://tm.bluebird.com/service> . '
+        - ' ?dp s4ener:belongsToTimeSeries ?tou_uri ; rdf:type s4ener:DataPoint ; saref:hasTimestamp ?ts ;'
+        - '   s4ener:hasEffectivePeriod ubmarket:period_15m ; saref:hasResult ?dpr.'
+        - ' ubmarket:period_15m time:hasXSDDuration "PT15M"^^xsd:duration .'
+        - ' ?dpr saref:hasValue ?value ; saref:isMeasuredIn ubmarket:EURPerMegawattHour .'

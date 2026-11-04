@@ -1,0 +1,18 @@
+# Temporary consumer stand-in - KE config.
+# Independent KB that REACTs to price-forecast, proving decentralised delivery
+# (the Bridge/Forecast SC does not know this KB exists).
+knowledge_engine:
+  knowledge_base_id: "http://forecast-consumer.bluebird.com"
+  kb_name: "forecast-consumer-standin"
+  kb_description: "Temporary consumer stand-in that reacts to price-forecast via the KE"
+  prefixes:
+    kb: "http://forecast-consumer.bluebird.com/"
+    ubmarket: "https://ubflex.bluebird.eu/market/"
+    rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    rdfs: "http://www.w3.org/2000/01/rdf-schema#"
+    s4ener: "https://saref.etsi.org/saref4ener/"
+    saref: "https://saref.etsi.org/core/"
+    time: "http://www.w3.org/2006/time#"
+    xsd: "http://www.w3.org/2001/XMLSchema#"
+  include:
+    - "./ki/price-forecast.yaml"

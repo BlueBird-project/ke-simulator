@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { TradingCycleResult, TradingFlowEvent, TradingScenario, TradingStage } from '../types';
 import { tradingManagerService } from '../services/TradingManagerService';
 import { BIDDING_ZONES, DEFAULT_BIDDING_ZONE } from '../services/MarketDataService';
-import { keBridgeEnabled, getBridgeStatus, subscribeBridgeEvents } from '../services/KeBridgeService';
+import { keBridgeEnabled, getBridgeStatus, listPriceForecastRuns, subscribeBridgeEvents } from '../services/KeBridgeService';
 import { TradingFlowDiagram } from './TradingFlowDiagram';
 import { TradingSequenceDiagram } from './TradingSequenceDiagram';
 import { EventTimeline } from './EventTimeline';
@@ -16,6 +16,12 @@ export const TradingManagerUI: React.FC = () => {
   const [result, setResult] = useState<TradingCycleResult | null>(null);
   const [zone, setZone] = useState<string>(DEFAULT_BIDDING_ZONE);
   const [bridgeMode, setBridgeMode] = useState<string | null>(null);
+  const [latestAutoCorrelationId, setLatestAutoCorrelationId] = useState<string | null>(null);
+
+  // The real/mock outcome of THIS run's price-forecast step, derived purely
+  // from the TradingFlowEvent TradingManagerService already emitted (never
+  // guessed from stageOrder's index) - last one wins if a scenario re-runs.
+  const forecastEvent = [...events].reverse().find(e => e.stage === 'price-forecast-twin-post-forecast');
 
   useEffect(() => {
     if (!keBridgeEnabled) return;
@@ -26,8 +32,26 @@ export const TradingManagerUI: React.FC = () => {
       if (event.type === 'bridge' && typeof event.mode === 'string') {
         setBridgeMode(event.mode);
       }
+      // Independent of any scenario run: tracks the latest automatic
+      // POST→REACT forecast (e.g. from market-service-standin), never mixed
+      // with this scenario's own manual-ask correlationId above.
+      if (event.type === 'ke' && event.ki === 'price-forecast' && event.trigger === 'react-auto' && typeof event.correlation_id === 'string') {
+        setLatestAutoCorrelationId(event.correlation_id);
+      }
     });
     return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!keBridgeEnabled) return;
+    listPriceForecastRuns()
+      .then(runs => {
+        const latestAuto = runs.find(r => r.trigger === 'react-auto');
+        if (latestAuto) setLatestAutoCorrelationId(latestAuto.correlation_id);
+      })
+      .catch(() => {
+        /* no automatic run yet - the panel below just stays empty */
+      });
   }, []);
 
   const runScenario = useCallback(async (scenario: TradingScenario) => {
@@ -116,7 +140,13 @@ export const TradingManagerUI: React.FC = () => {
       </div>
 
       <div className="mb-6">
-        <TradingSequenceDiagram currentStage={currentStage} isAnimating={isRunning} />
+        <TradingSequenceDiagram
+          currentStage={currentStage}
+          isAnimating={isRunning}
+          forecastCorrelationId={forecastEvent?.correlationId ?? null}
+          forecastDataLabel={forecastEvent?.dataLabel ?? null}
+          latestAutoCorrelationId={latestAutoCorrelationId}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -169,7 +199,12 @@ export const TradingManagerUI: React.FC = () => {
       </div>
 
       <div className="mt-6">
-        <TradingFlowDiagram currentStage={currentStage} isAnimating={isRunning} />
+        <TradingFlowDiagram
+          currentStage={currentStage}
+          isAnimating={isRunning}
+          forecastCorrelationId={forecastEvent?.correlationId ?? null}
+          forecastDataLabel={forecastEvent?.dataLabel ?? null}
+        />
       </div>
     </div>
   );

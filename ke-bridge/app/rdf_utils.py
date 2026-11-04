@@ -17,6 +17,11 @@ def datetime_literal(iso: str) -> str:
     return f'"{iso}"^^<{XSD}dateTime>'
 
 
+def double_literal(value: float) -> str:
+    """An xsd:double literal in N3."""
+    return f'"{value}"^^<{XSD}double>'
+
+
 def parse_node(n3: str) -> str:
     """Return the lexical value of an N3 node (strip <> or quotes/datatype)."""
     s = (n3 or "").strip()

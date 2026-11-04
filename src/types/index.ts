@@ -4,6 +4,104 @@ export interface PricePoint {
   price: number;
 }
 
+// --- Taimu forecasting API (flexibility-manager/forecasting, FAST + Chronos-2) ---
+// Plain HTTP types for ForecastingApiService. Unrelated to the KE/ENTSO-E types
+// above - this is a direct REST integration, not a Knowledge Interaction.
+
+export interface ForecastingHealth {
+  status: string;
+}
+
+export interface DayAheadForecastRequest {
+  horizon_span: number;
+  data: {
+    ds: string[];
+    unique_id: string[];
+    y: number[];
+  };
+}
+
+export interface ForecastResult {
+  ds: string[];
+  unique_id: string[];
+  yhat: number[];
+}
+
+// --- Price forecast delivered through the Knowledge Engine (ke-bridge) ---
+// Returned by POST /bridge/ke/price-forecast/run. Distinct from
+// ForecastResult above (which is the direct-HTTP Taimu panel's own type):
+// this one also carries the KE-specific correlation_id/price_points/sources
+// so the UI can clearly label it as "via KE", not "HTTP directo".
+
+export interface PriceForecastPoint {
+  ds: string;
+  yhat: number;
+}
+
+export interface PriceForecastKeResult {
+  correlation_id: string;
+  forecast_uri: string;
+  price_points: number;
+  forecast: PriceForecastPoint[];
+  price_source: string;
+  forecast_source: string;
+}
+
+// Emitted over the bridge's SSE /events stream when the Forecast Smart
+// Connector's `tou-price` REACT auto-triggers a forecast (trigger: react-auto)
+// - i.e. with NO frontend button involved. See ke-bridge/app/ke_bridge.py.
+export interface PriceForecastAutoEvent {
+  type: 'ke';
+  ki: 'price-forecast';
+  trigger: 'react-auto';
+  correlation_id: string;
+  price_points?: number;
+  forecast_points?: number;
+  error?: string;
+}
+
+// --- Full run detail: GET /ke/price-forecast/runs/{correlation_id} ---
+// Backed by ke-bridge's in-memory run_store (bounded, lost on backend
+// restart - see app/run_store.py). Real data only: the actual historical
+// points sent to Taimu and the actual yhat points it returned.
+
+export interface PriceForecastInputPoint {
+  ts: string; // ISO 8601, UTC
+  price: number;
+  unit: string; // 'EUR/MWh', confirmed by the tou-price graph pattern
+}
+
+export interface PriceForecastOutputPoint {
+  ds: string; // ISO 8601, UTC
+  yhat: number;
+  unit: string;
+}
+
+export interface PriceForecastRunStage {
+  name: 'prices_received' | 'taimu_request' | 'taimu_response' | 'forecast_published' | string;
+  at: number; // unix seconds
+  [key: string]: unknown;
+}
+
+export interface PriceForecastRunDetail {
+  correlation_id: string;
+  status: 'running' | 'ok' | 'error';
+  trigger: 'manual-ask' | 'react-auto';
+  price_source: 'ke-ask' | 'ke-react';
+  data_origin: string; // e.g. "market-service-standin (TEST, POST)"
+  started_at: number;
+  completed_at?: number;
+  stages: PriceForecastRunStage[];
+  prices?: PriceForecastInputPoint[];
+  forecast?: PriceForecastOutputPoint[];
+  forecast_uri?: string;
+  forecast_source?: string;
+  tou_uri?: string; // only present for trigger: react-auto
+  date_from?: string; // only present for trigger: manual-ask
+  date_to?: string;
+  error?: string;
+}
+
 export interface PriceSignal {
   id: string;
   timestamp: string;
@@ -64,6 +162,12 @@ export type TradingStage =
 
 export interface TradingFlowEvent extends BaseFlowEvent {
   stage: TradingStage;
+  // Present only when this stage reused a real price-forecast run (Taimu/
+  // Chronos-2 via the KE) instead of the local mock - links back to the
+  // SAME run_store/RunDetailPanel used by PriceForecastKePanel (no new
+  // detail view). 'REAL' = Chronos-2 via KE, 'MOCK' = local random noise.
+  correlationId?: string;
+  dataLabel?: 'REAL' | 'MOCK';
 }
 
 // A day-ahead shortfall means less was bought than actually needed (topped

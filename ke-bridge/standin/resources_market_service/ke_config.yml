@@ -1,0 +1,19 @@
+# TEST Market Service producer - KE config. Publishes synthetic day-ahead
+# prices via a real POST (not an HTTP shortcut to forecasting), so the
+# Forecast Smart Connector's new REACT has a genuine KE event to react to.
+knowledge_engine:
+  knowledge_base_id: "http://test-market-producer.bluebird.com"
+  kb_name: "market-service-standin"
+  kb_description: "TEST producer - POSTs synthetic (clearly labelled) day-ahead prices via the KE"
+  prefixes:
+    kb: "http://test-market-producer.bluebird.com/"
+    tm: "http://tm.bluebird.com/"
+    ubmarket: "https://ubflex.bluebird.eu/market/"
+    rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    rdfs: "http://www.w3.org/2000/01/rdf-schema#"
+    s4ener: "https://saref.etsi.org/saref4ener/"
+    saref: "https://saref.etsi.org/core/"
+    time: "http://www.w3.org/2006/time#"
+    xsd: "http://www.w3.org/2001/XMLSchema#"
+  include:
+    - "./ki/trading-manager.yaml"

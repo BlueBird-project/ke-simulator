@@ -4,6 +4,8 @@ import { MarketSideUI } from './components/MarketSideUI';
 import { EnergyManagerUI } from './components/EnergyManagerUI';
 import { FlowDiagram } from './components/FlowDiagram';
 import { TradingManagerUI } from './components/TradingManagerUI';
+import { TaimuForecastingPanel } from './components/TaimuForecastingPanel';
+import { PriceForecastKePanel } from './components/PriceForecastKePanel';
 import { simulationService } from './services/SimulationService';
 import { energyManagerService } from './services';
 import './App.css';
@@ -66,6 +68,12 @@ function App() {
 
         {/* Trading Manager / Flexibility Manager day-ahead + intraday cycle */}
         <TradingManagerUI />
+
+        {/* Taimu forecasting API demo (direct HTTP, independent of the KE flow) */}
+        <TaimuForecastingPanel />
+
+        {/* Taimu forecasting delivered through real KE Knowledge Interactions */}
+        <PriceForecastKePanel />
 
         {/* Flow Diagram */}
         <div className="mb-8">

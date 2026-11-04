@@ -1,0 +1,17 @@
+# Consumer's copy of the price-forecast pattern (must match the Bridge's
+# resources/ki/price-forecast.yaml so the KE reasoner matches POST <-> REACT).
+knowledge_engine:
+  kb_name: ""
+  kb_description: ""
+  graph_patterns:
+
+    price-forecast:
+      name: "price-forecast"
+      description: "Day-ahead price forecast consumed via REACT."
+      required_bindings:
+        - "forecast_uri"
+      pattern:
+        - ' ?forecast_uri rdf:type s4ener:TimeSeries ; s4ener:producedBy <http://simulator.bluebird.com/service> . '
+        - ' ?forecast_uri s4ener:hasCreationTime ?time_create . '
+        - ' ?dp s4ener:belongsToTimeSeries ?forecast_uri ; rdf:type s4ener:DataPoint ; saref:hasTimestamp ?ts ; saref:hasResult ?dpr . '
+        - ' ?dpr saref:hasValue ?value ; saref:isMeasuredIn ubmarket:EURPerMegawattHour . '

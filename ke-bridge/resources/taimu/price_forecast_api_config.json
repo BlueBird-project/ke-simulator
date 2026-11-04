@@ -1,0 +1,10 @@
+{
+  "path_fast": ".",
+  "forges": ["coerce_numeric_y", "interpolate_15min"],
+  "translate": ["chronos_2"],
+  "config_files": {
+    "forge": [{}, {}],
+    "translate": [{"model_path": "amazon/chronos-2"}]
+  },
+  "default_horizon_span": 16
+}

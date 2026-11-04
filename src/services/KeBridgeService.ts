@@ -1,4 +1,4 @@
-import { PricePoint } from '../types';
+import { PricePoint, PriceForecastKeResult, PriceForecastRunDetail } from '../types';
 
 // Dev calls go through the Vite proxy (/bridge -> http://localhost:8090) to
 // avoid CORS; override with VITE_KE_BRIDGE_URL in other environments.
@@ -68,4 +68,54 @@ function tomorrowUtcRange(): { from: string; to: string } {
   from.setUTCHours(0, 0, 0, 0);
   const to = new Date(from.getTime() + 24 * 60 * 60 * 1000);
   return { from: from.toISOString(), to: to.toISOString() };
+}
+
+/**
+ * Runs the full price-forecast vertical slice on the bridge: ASK TM for
+ * day-ahead prices through the KE, call the Taimu forecasting API over HTTP,
+ * POST the forecast back onto the KE (price-forecast KI). This is the
+ * "via Knowledge Engine" path - distinct from ForecastingApiService, which
+ * calls Taimu directly over HTTP with no KE involved at all.
+ */
+export async function runPriceForecastViaKe(horizonSpan = 16): Promise<PriceForecastKeResult> {
+  const { from, to } = tomorrowUtcRange();
+  const res = await fetch(`${BRIDGE_URL}/ke/price-forecast/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date_from: from, date_to: to, horizon_span: horizonSpan })
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`bridge price-forecast run returned ${res.status}${detail ? `: ${detail}` : ''}`);
+  }
+  return res.json();
+}
+
+/**
+ * Full detail for one price-forecast run (manual ASK or automatic REACT):
+ * the real historical price series, the real forecast points, timestamps,
+ * unit, data origin and the stages actually reached. Backed by ke-bridge's
+ * in-memory run_store (bounded, lost on backend restart).
+ */
+export async function getPriceForecastRun(correlationId: string): Promise<PriceForecastRunDetail> {
+  const res = await fetch(`${BRIDGE_URL}/ke/price-forecast/runs/${encodeURIComponent(correlationId)}`);
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`bridge run detail returned ${res.status}${detail ? `: ${detail}` : ''}`);
+  }
+  return res.json();
+}
+
+/**
+ * Recent runs (manual ASK and automatic REACT), newest first - reuses the
+ * SAME GET /ke/price-forecast/runs already used to back run_store, just not
+ * previously wrapped on the frontend. Used to let the UI show the latest
+ * automatic (POST→REACT) run as an independent view, never mixed with a
+ * specific scenario's own manual run.
+ */
+export async function listPriceForecastRuns(): Promise<PriceForecastRunDetail[]> {
+  const res = await fetch(`${BRIDGE_URL}/ke/price-forecast/runs`);
+  if (!res.ok) throw new Error(`bridge run list returned ${res.status}`);
+  const data = await res.json();
+  return data.runs ?? [];
 }

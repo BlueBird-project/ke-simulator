@@ -18,3 +18,4 @@ knowledge_engine:
   include:
     - "./ki/trading-manager.yaml"
     - "./ki/flexibility-manager.yaml"
+    - "./ki/price-forecast.yaml"

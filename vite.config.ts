@@ -35,6 +35,14 @@ export default defineConfig(({ mode }) => {
           target: env.KE_BRIDGE_TARGET || 'http://localhost:8090',
           changeOrigin: true,
           rewrite: (path: string) => path.replace(/^\/bridge/, '')
+        },
+        // Proxies the browser to the standalone Taimu forecasting API
+        // (flexibility-manager/forecasting, FastAPI + Chronos-2), avoiding
+        // CORS. Plain HTTP passthrough - not a Knowledge Engine interaction.
+        '/forecast-api': {
+          target: env.FORECAST_API_TARGET || 'http://localhost:8000',
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/forecast-api/, '')
         }
       }
     }
